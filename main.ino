@@ -24,15 +24,15 @@
 // KONFIG ENDPOINT SERVER
 // ============================
 // Pastikan URL TANPA trailing slash setelah .php
-const char *serverUrl = "http://103.24.148.59:90/encoder_log.php";
-const char *device_id = "esp8266_smk_01";
+const char* serverUrl = "http://103.24.148.59:90/encoder_log.php";
+const char* device_id = "esp8266_smk_01";
 
 // ============================
 // LIST WIFI (SSID + PASSWORD)
 // ============================
 struct WifiCred {
-  const char *ssid;
-  const char *pass;
+  const char* ssid;
+  const char* pass;
 };
 
 WifiCred wifiList[] = {
@@ -56,32 +56,33 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 // ============================
 // ENCODER SETUP
 // ============================
-const int pinEncA = D5; // GPIO14
-const int pinEncB = D6; // GPIO12
+const int pinEncA = D5;  // GPIO14
+const int pinEncB = D6;  // GPIO12
 
 const float diameter_mm = 50.0;      // roda 5 cm
 const int pulsesPerRevolution = 360; // sesuai spek encoder
 
 volatile long encoderCount = 0;
 
-float distancePerPulse_mm = 0;
+float distancePerPulse_mm = 0.0f;
 
 unsigned long lastPrintTime = 0;
 const unsigned long printInterval = 500; // ms
+
 long lastCountForSpeed = 0;
 
-float totalDistance_m = 0.0;
+float totalDistance_m = 0.0f;
 
 long currentCountCached = 0;
 long deltaCountCached = 0;
-float speed_km_per_j_Cached = 0.0;
-const char *dirShortCached = "STP";
+float speed_km_per_j_Cached = 0.0f;
+const char* dirShortCached = "STP";
 
 // ============================
 // TIMER KIRIM DATA
 // ============================
 unsigned long lastSendTime = 0;
-const unsigned long sendIntervalMs = 5000UL; // 5 menit
+const unsigned long sendIntervalMs = 5000UL; // 5 detik
 
 unsigned long lastFailRetryMs = 0;
 const unsigned long failRetryIntervalMs = 15000UL; // retry tiap 15 detik kalau gagal
@@ -98,8 +99,8 @@ unsigned long lastScanMs = 0;
 const unsigned long minScanIntervalMs = 20000UL; // minimal jeda scan 20 detik
 
 // RSSI threshold
-const int rssiBad = -75;         // jika di bawah ini dianggap jelek
-const int rssiGood = -67;        // jika di atas ini dianggap aman
+const int rssiBad = -75;       // jika di bawah ini dianggap jelek
+const int rssiGood = -67;      // jika di atas ini dianggap aman
 const int rssiSwitchMargin = 10; // AP baru harus lebih kuat minimal 10 dB (agar tidak ping-pong)
 
 // Butuh sinyal jelek beberapa detik sebelum scan
@@ -121,7 +122,7 @@ String currentSsid = "";
 // ============================
 // UTIL: cari password dari SSID
 // ============================
-bool getCredBySsid(const String &ssid, const char* &outPass) {
+bool getCredBySsid(const String& ssid, const char*& outPass) {
   for (int i = 0; i < WIFI_COUNT; i++) {
     if (ssid.equals(wifiList[i].ssid)) {
       outPass = wifiList[i].pass;
@@ -132,8 +133,7 @@ bool getCredBySsid(const String &ssid, const char* &outPass) {
 }
 
 // Return 1..WIFI_COUNT jika SSID ada di list, kalau tidak ketemu return 0
-int wifiIndexFromSsid(const String &ssid)
-{
+int wifiIndexFromSsid(const String& ssid) {
   for (int i = 0; i < WIFI_COUNT; i++) {
     if (ssid.equals(wifiList[i].ssid)) return i + 1;
   }
@@ -141,13 +141,12 @@ int wifiIndexFromSsid(const String &ssid)
 }
 
 // Kode kirim:
-// 00..99  = 2 digit
-// A       = >=100
-// B       = >=200
+// 00..99 = 2 digit
+// A = >=100
+// B = >=200
 // ...
-// 0z      = >=1000 (freeze)
-String sendCode()
-{
+// 0z = >=1000 (freeze)
+String sendCode() {
   if (sendCountFrozen || sendOkCount >= 1000) return "0z";
 
   if (sendOkCount < 100) {
@@ -162,8 +161,7 @@ String sendCode()
 }
 
 // LCD helper: pendekkan SSID (biar muat)
-String shortSsid(const String &s)
-{
+String shortSsid(const String& s) {
   if (s.length() <= 6) return s;
   return s.substring(0, 6);
 }
@@ -171,8 +169,7 @@ String shortSsid(const String &s)
 // ============================
 // INTERRUPT HANDLER ENCODER A
 // ============================
-void IRAM_ATTR handleEncA()
-{
+void IRAM_ATTR handleEncA() {
   bool B = digitalRead(pinEncB);
   if (B == LOW) encoderCount++;
   else encoderCount--;
@@ -181,9 +178,8 @@ void IRAM_ATTR handleEncA()
 // ============================
 // WIFI: connect ke SSID tertentu (non-blocking style)
 // ============================
-void connectToSsid(const String &ssid)
-{
-  const char *pass = nullptr;
+void connectToSsid(const String& ssid) {
+  const char* pass = nullptr;
   if (!getCredBySsid(ssid, pass)) {
     Serial.print("SSID tidak ada di list: ");
     Serial.println(ssid);
@@ -202,16 +198,15 @@ void connectToSsid(const String &ssid)
   delay(50);
 
   WiFi.begin(ssid.c_str(), pass);
-  currentSsid = ssid;
 
+  currentSsid = ssid;
   lastSwitchMs = millis();
 }
 
 // ============================
 // WIFI: konek awal TANPA scan (biar encoder tidak telat)
 // ============================
-void connectWiFiInitialFast()
-{
+void connectWiFiInitialFast() {
   Serial.println();
   Serial.println("=== WIFI INITIAL CONNECT (FAST) ===");
 
@@ -221,6 +216,7 @@ void connectWiFiInitialFast()
 
   // coba langsung SSID pertama, nanti roaming akan cari terbaik
   WiFi.begin(wifiList[0].ssid, wifiList[0].pass);
+
   currentSsid = String(wifiList[0].ssid);
   lastSwitchMs = millis();
 }
@@ -228,8 +224,7 @@ void connectWiFiInitialFast()
 // ============================
 // ROAM: scan -> pilih AP terbaik dari list -> switch bila perlu
 // ============================
-void roamToBetterAP(int currentRssi)
-{
+void roamToBetterAP(int currentRssi) {
   Serial.println();
   Serial.println("=== ROAM SCAN ===");
 
@@ -303,30 +298,26 @@ void roamToBetterAP(int currentRssi)
 // ============================
 // WIFI SERVICE: monitor + roaming
 // ============================
-void wifiService()
-{
+void wifiService() {
   unsigned long now = millis();
   bool wifiOK = (WiFi.status() == WL_CONNECTED);
 
   // transisi putus
-  if (!wifiOK && wifiWasConnected)
-  {
+  if (!wifiOK && wifiWasConnected) {
     wifiDownSinceMs = now;
     wifiWasConnected = false;
     badRssiSinceMs = 0;
   }
 
   // transisi nyambung
-  if (wifiOK && !wifiWasConnected)
-  {
+  if (wifiOK && !wifiWasConnected) {
     wifiUpSinceMs = now;
     wifiWasConnected = true;
     currentSsid = WiFi.SSID();
   }
 
   // Jika connect, cek RSSI
-  if (wifiOK)
-  {
+  if (wifiOK) {
     int rssiNow = WiFi.RSSI();
 
     if (rssiNow < rssiBad) {
@@ -363,13 +354,10 @@ void wifiService()
 
 // ============================
 // UPDATE LCD: Baris 1 = D + DIR
-//             Baris 2 = W<idx>-<sendCode> RSSI
+// Baris 2 = W<idx>-<sendCode> RSSI
 // ============================
-void updateLCD()
-{
-  unsigned long now = millis();
+void updateLCD() {
   bool wifiOK = (WiFi.status() == WL_CONNECTED);
-
   long dist_m_int = (long)(totalDistance_m + 0.5f);
 
   lcd.clear();
@@ -391,7 +379,7 @@ void updateLCD()
     lcd.print(sendCode());
     lcd.print(" --");
   } else {
-    int widx = wifiIndexFromSsid(WiFi.SSID()); // 1..6, kalau tidak ketemu 0
+    int widx = wifiIndexFromSsid(WiFi.SSID()); // 1..N, kalau tidak ketemu 0
     lcd.print("W");
     lcd.print(widx);
     lcd.print("-");
@@ -404,8 +392,7 @@ void updateLCD()
 // ============================
 // UPDATE PERHITUNGAN ENCODER + CACHE
 // ============================
-void updateEncoderStats()
-{
+void updateEncoderStats() {
   unsigned long now = millis();
   if (now - lastPrintTime < printInterval) return;
   lastPrintTime = now;
@@ -418,18 +405,19 @@ void updateEncoderStats()
   long deltaCount = currentCount - lastCountForSpeed;
   lastCountForSpeed = currentCount;
 
-  if (deltaCount > 0)
-  {
+  // totalDistance hanya bertambah saat maju
+  if (deltaCount > 0) {
     float distanceInterval_mm_forward = deltaCount * distancePerPulse_mm;
-    totalDistance_m += distanceInterval_mm_forward / 1000.0;
+    totalDistance_m += distanceInterval_mm_forward / 1000.0f;
   }
 
-  float deltaTime_s = printInterval / 1000.0;
+  float deltaTime_s = printInterval / 1000.0f;
   float distanceInterval_mm = deltaCount * distancePerPulse_mm;
-  float speed_mm_per_s = distanceInterval_mm / deltaTime_s;
-  float speed_km_per_j = (speed_mm_per_s / 1000.0) * 3.6;
 
-  const char *dirShort;
+  float speed_mm_per_s = distanceInterval_mm / deltaTime_s;
+  float speed_km_per_j = (speed_mm_per_s / 1000.0f) * 3.6f;
+
+  const char* dirShort;
   if (deltaCount > 0) dirShort = "FWD";
   else if (deltaCount < 0) dirShort = "REV";
   else dirShort = "STP";
@@ -457,6 +445,7 @@ void updateEncoderStats()
   } else {
     Serial.print(" WIFI:DIS");
   }
+
   Serial.print(" OKsend:");
   Serial.println(sendOkCount);
 
@@ -466,8 +455,7 @@ void updateEncoderStats()
 // ============================
 // KIRIM DATA KE SERVER (return true kalau sukses)
 // ============================
-bool sendDistanceData()
-{
+bool sendDistanceData() {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("Send skip, WiFi belum connect.");
     return false;
@@ -506,10 +494,10 @@ bool sendDistanceData()
 
   int httpCode = -1;
 
-  if (http.begin(client, serverUrl))
-  {
+  if (http.begin(client, serverUrl)) {
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Connection", "close");
+
     httpCode = http.POST(payload);
 
     if (httpCode > 0) {
@@ -520,16 +508,12 @@ bool sendDistanceData()
       Serial.print("HTTP POST gagal: ");
       Serial.println(http.errorToString(httpCode));
     }
-
     http.end();
-  }
-  else
-  {
+  } else {
     Serial.println("http.begin gagal (URL salah / DNS / port).");
   }
 
-  if (httpCode >= 200 && httpCode <= 299)
-  {
+  if (httpCode >= 200 && httpCode <= 299) {
     // naikkan counter sukses kirim sampai 1000 lalu freeze
     if (!sendCountFrozen) {
       sendOkCount++;
@@ -547,8 +531,7 @@ bool sendDistanceData()
 // ============================
 // SETUP
 // ============================
-void setup()
-{
+void setup() {
   Serial.begin(115200);
   delay(200);
 
@@ -558,13 +541,14 @@ void setup()
   pinMode(pinEncA, INPUT_PULLUP);
   pinMode(pinEncB, INPUT_PULLUP);
 
-  distancePerPulse_mm = (3.14159265 * diameter_mm) / pulsesPerRevolution;
+  distancePerPulse_mm = (3.14159265f * diameter_mm) / pulsesPerRevolution;
+
   attachInterrupt(digitalPinToInterrupt(pinEncA), handleEncA, RISING);
 
   Wire.begin(D2, D1);
+
   lcd.init();
   lcd.backlight();
-
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Encoder Ready");
@@ -577,22 +561,21 @@ void setup()
 
   lastSendTime = millis();
   lastPrintTime = millis();
+
   lcd.clear();
 }
 
 // ============================
 // LOOP
 // ============================
-void loop()
-{
+void loop() {
   updateEncoderStats();
   wifiService();
 
   unsigned long now = millis();
 
   // Normal send interval
-  if (now - lastSendTime >= sendIntervalMs)
-  {
+  if (now - lastSendTime >= sendIntervalMs) {
     bool ok = sendDistanceData();
 
     // IMPORTANT: update lastSendTime selalu, biar tidak spam saat gagal
@@ -602,8 +585,7 @@ void loop()
     else lastFailRetryMs = 0;
   }
   // Retry kalau sebelumnya gagal
-  else if (lastFailRetryMs != 0 && (now - lastFailRetryMs >= failRetryIntervalMs))
-  {
+  else if (lastFailRetryMs != 0 && (now - lastFailRetryMs >= failRetryIntervalMs)) {
     bool ok = sendDistanceData();
     lastFailRetryMs = now;
     if (ok) lastFailRetryMs = 0;
